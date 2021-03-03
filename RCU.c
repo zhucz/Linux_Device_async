@@ -1,6 +1,21 @@
 /*-------------------------- 读-复制-更新---------------------------------*/
+//不同于自旋锁，读端没有锁、内存屏障、原子指令类的开销
+//可以看成是读写锁的高性能版本
+//Linux 中提供的RCU操作包括4种
 
+//1.读锁定
+rcu_read_lock();
+rcu_read_lock_bh();
 
+//2.读解锁
+rcu_read_unlock();
+rcu_read_unlock_bh();
+
+//同步RCU
+synchronize_rcu();
+
+//挂接回调
+void call_rcu(struct rcu_head *head, void (*func)(struct rcu_head *rcu));
 
 
 
