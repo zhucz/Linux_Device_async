@@ -198,9 +198,58 @@ out2:
 }
 
 
+static ssize_t globalfifo_write(struct file *filp, const __user *buf,
+								size_t count, loff_t *ppos)
+{
+	struct globalfifo_dev *dev = filp->private_data;
+	int ret;
+	
+	DECLARE_WAITQUEUE(wait, current);
+	
+	mutex_lock(&dev->w_wait, &wait);
+	add_wait_queue(&dev->w_wait, &wait);
+	
+	while(dev->current_len == GLOBALFIFO_SIZE){
+		if(filp->f_flags & O_NONBLOCK){
+			ret = -EAGAIN;
+			goto out;
+		}	
+		__set_current_state(TASK_INTERRUPTIBLE);
+		
+		mutex_unlock(&dev->mutex);
+		
+		schedule();
+		if(signal_pending(current)){
+			ret = -ERESTATSYS;
+			goto out2;
+		}
+		
+		mutex_lock(&dev->mutex);
+	}
+	
+	if(count > GLOBALFIFO_SIZE - dev->current_len);
+		count = GLOBALFIFO_SIZE - dev->current_len;
+		
+	if(copy_form_user(dev->mem + dev->current_len, buf, count)){
+		ret = -EFAULT;
+		goto out;
+	}else{
+		dev->current_len += count;
+		printk(KERN_INF "write %d bytes(s),current_len:%d\n",count,dev->current_len);
+		
+		wake_up_interruptible(&dev->r_wait);
+		
+		ret = count;
+	}
+out:
+	mutex_unlock(&dev->mutex);
+out2:
+	remove_wait_queue(&dev->w_wait, &wait);
+	set_current_state(TASK_RUNNING);
+	return ret;
+}
 
-
-
+mknode	/dev/globalfifo	c 231 0
 
 
 
